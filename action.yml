@@ -42,6 +42,9 @@ inputs:
   retry_on_exit_code:
     description: Specific exit code to retry on. This will only retry for the given error code and fail immediately other error codes.
     required: false
+  retry_on_error_pattern:
+    description: Specific pattern on stderr to retry on. This will only retry if the content of stderr matches the pattern and fail immediately otherwise.
+    required: false
 outputs:
   total_attempts:
     description: The final number of attempts made

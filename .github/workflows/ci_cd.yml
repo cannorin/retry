@@ -135,25 +135,6 @@ jobs:
           expected: failure
           actual: ${{ steps.wrong_shell.outcome }}
 
-      - name: retry_on_error_pattern
-        id: retry_on_error_pattern
-        uses: ./
-        continue-on-error: true
-        with:
-          command: node -e "console.error('First try.'); process.exit(1)"
-          new_command_on_retry: node -e "console.error('Second try.'); process.exit(0)"
-          retry_on_error_pattern: /first/i
-          timeout_minutes: 1
-          max_attempts: 3
-      - uses: nick-invision/assert-action@v1
-        with:
-          expected: 2
-          actual: ${{ steps.retry_on_error_pattern.outputs.total_attempts }}
-      - uses: nick-invision/assert-action@v1
-        with:
-          expected: success
-          actual: ${{ steps.retry_on_error_pattern.outputs.outcome }}
-
   ci_integration_envvar:
     name: Run Integration Env Var Tests
     if: startsWith(github.ref, 'refs/heads')
@@ -384,6 +365,58 @@ jobs:
           max_attempts: 3
           command: node -e "process.exit(1)"
           on_retry_command: node -e "throw new Error('This is an on-retry command error')"
+
+  ci_integration_error_pattern:
+    name: Run Integration Tests (retry_on_error_pattern)
+    if: startsWith(github.ref, 'refs/heads')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Setup Node.js
+        uses: actions/setup-node@v1
+        with:
+          node-version: 16
+      - name: Install dependencies
+        run: npm ci
+
+      - name: happy-path (retry_on_error_pattern)
+        id: happy_path_retry_on_error_pattern
+        uses: ./
+        continue-on-error: true
+        with:
+          command: node -e "console.error('First try.'); process.exit(1)"
+          new_command_on_retry: node -e "console.error('Second try.'); process.exit(0)"
+          retry_on_error_pattern: /first/i
+          timeout_minutes: 1
+          max_attempts: 3
+      - uses: nick-invision/assert-action@v1
+        with:
+          expected: 2
+          actual: ${{ steps.happy_path_retry_on_error_pattern.outputs.total_attempts }}
+      - uses: nick-invision/assert-action@v1
+        with:
+          expected: success
+          actual: ${{ steps.happy_path_retry_on_error_pattern.outcome }}
+
+      - name: sad-path (retry_on_error_pattern)
+        id: sad_path_retry_on_error_pattern
+        uses: ./
+        continue-on-error: true
+        with:
+          command: node -e "console.error('First try.'); process.exit(1)"
+          new_command_on_retry: node -e "console.error('Second try.'); process.exit(0)"
+          retry_on_error_pattern: /first/
+          timeout_minutes: 1
+          max_attempts: 3
+      - uses: nick-invision/assert-action@v1
+        with:
+          expected: 1
+          actual: ${{ steps.sad_path_retry_on_error_pattern.outputs.total_attempts }}
+      - uses: nick-invision/assert-action@v1
+        with:
+          expected: failure
+          actual: ${{ steps.sad_path_retry_on_error_pattern.outcome }}
 
   # timeout tests take longer to run so run in parallel
   ci_integration_timeout_seconds:
