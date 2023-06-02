@@ -388,8 +388,6 @@ jobs:
           command: node -e "console.error('First try.'); process.exit(1)"
           new_command_on_retry: node -e "console.error('Second try.'); process.exit(0)"
           retry_on_error_pattern: /first/i
-          timeout_minutes: 1
-          max_attempts: 3
       - uses: nick-invision/assert-action@v1
         with:
           expected: 2
@@ -407,8 +405,6 @@ jobs:
           command: node -e "console.error('First try.'); process.exit(1)"
           new_command_on_retry: node -e "console.error('Second try.'); process.exit(0)"
           retry_on_error_pattern: /first/
-          timeout_minutes: 1
-          max_attempts: 3
       - uses: nick-invision/assert-action@v1
         with:
           expected: 1
@@ -613,6 +609,7 @@ jobs:
         ci_integration_retry_wait_seconds,
         ci_integration_continue_on_error,
         ci_integration_retry_on_exit_code,
+        ci_integration_error_pattern,
         ci_integration_timeout_seconds,
         ci_integration_timeout_minutes,
         ci_integration_timeout_retry_on_timeout,
@@ -640,7 +637,7 @@ jobs:
         run: npm ci
       - name: Release
         id: semantic
-        uses: cycjimmy/semantic-release-action@v2
+        uses: cycjimmy/semantic-release-action@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Tag

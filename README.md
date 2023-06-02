@@ -8,25 +8,25 @@ Retries an Action step on failure or timeout. This is currently intended to repl
 
 ## Inputs
 
+### `command`
+
+**Required** The command to run.
+
 ### `timeout_minutes`
 
-**Required** Minutes to wait before attempt times out. Must only specify either minutes or seconds
+**Optional** Minutes to wait before attempt times out.
 
 ### `timeout_seconds`
 
-**Required** Seconds to wait before attempt times out. Must only specify either minutes or seconds
+**Optional** Seconds to wait before attempt times out.
 
 ### `max_attempts`
 
-**Required** Number of attempts to make before failing the step
-
-### `command`
-
-**Required** The command to run
+**Optional** Number of attempts to make before failing the step. Defaults to `3`.
 
 ### `retry_wait_seconds`
 
-**Optional** Number of seconds to wait before attempting the next retry. Defaults to `10`
+**Optional** Number of seconds to wait before attempting the next retry. Defaults to `10`.
 
 ### `shell`
 
@@ -34,11 +34,11 @@ Retries an Action step on failure or timeout. This is currently intended to repl
 
 ### `polling_interval_seconds`
 
-**Optional** Number of seconds to wait while polling for command result. Defaults to `1`
+**Optional** Number of seconds to wait while polling for command result. Defaults to `1`.
 
 ### `retry_on`
 
-**Optional** Event to retry on. Currently supports [any (default), timeout, error].
+**Optional** Event to retry on. Currently supports [`any` (default), `timeout`, `error`].
 
 ### `warning_on_retry`
 

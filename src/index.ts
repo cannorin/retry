@@ -3,7 +3,7 @@ import { execSync, spawn } from 'child_process';
 import ms from 'milliseconds';
 import kill from 'tree-kill';
 
-import { getInputs, getTimeout, Inputs, validateInputs } from './inputs';
+import { getInputs, getTimeout, Inputs } from './inputs';
 import { retryWait, wait } from './util';
 
 const OS = process.platform;
@@ -67,13 +67,14 @@ async function runRetryCmd(inputs: Inputs): Promise<void> {
 }
 
 async function runCmd(attempt: number, inputs: Inputs) {
-  const end_time = Date.now() + getTimeout(inputs);
+  const timeout = getTimeout(inputs);
+  const end_time = timeout && Date.now() + timeout;
   const executable = getExecutable(inputs);
 
   exit = 0;
   done = false;
   error_pattern_matched = false;
-  let timeout = false;
+  let timeout_reached = false;
 
   debug(`Running command ${inputs.command} on ${OS} using shell ${executable}`);
   const child =
@@ -105,7 +106,7 @@ async function runCmd(attempt: number, inputs: Inputs) {
     }
 
     // On Windows signal is null.
-    if (timeout) {
+    if (timeout_reached) {
       return;
     }
 
@@ -118,10 +119,10 @@ async function runCmd(attempt: number, inputs: Inputs) {
 
   do {
     await wait(ms.seconds(inputs.polling_interval_seconds));
-  } while (Date.now() < end_time && !done);
+  } while ((!end_time || Date.now() < end_time) && !done);
 
   if (!done && child.pid) {
-    timeout = true;
+    timeout_reached = true;
     kill(child.pid);
     await retryWait(ms.seconds(inputs.retry_wait_seconds));
     throw new Error(`Timeout of ${getTimeout(inputs)}ms hit`);
@@ -134,8 +135,6 @@ async function runCmd(attempt: number, inputs: Inputs) {
 }
 
 async function runAction(inputs: Inputs) {
-  await validateInputs(inputs);
-
   for (let attempt = 1; attempt <= inputs.max_attempts; attempt++) {
     try {
       // just keep overwriting attempts output
@@ -157,7 +156,9 @@ async function runAction(inputs: Inputs) {
         throw error;
       } else if (exit > 0 && inputs.retry_on_error_pattern && !error_pattern_matched) {
         // error: error & pattern did not match
-        info(`The error didn't match the pattern: '${inputs.retry_on_error_pattern}'`);
+        warning(
+          `Early exited because the error didn't match the pattern: '${inputs.retry_on_error_pattern}'`
+        );
         throw error;
       } else {
         await runRetryCmd(inputs);

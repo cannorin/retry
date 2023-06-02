@@ -44,29 +44,19 @@ export function getInputBoolean(id: string): boolean {
   return input.toLowerCase() === 'true';
 }
 
-export async function validateInputs(inputs: Inputs) {
-  if (
-    (!inputs.timeout_minutes && !inputs.timeout_seconds) ||
-    (inputs.timeout_minutes && inputs.timeout_seconds)
-  ) {
-    throw new Error('Must specify either timeout_minutes or timeout_seconds inputs');
-  }
-}
-
-export function getTimeout(inputs: Inputs): number {
+export function getTimeout(inputs: Inputs): number | undefined {
   if (inputs.timeout_minutes) {
     return ms.minutes(inputs.timeout_minutes);
   } else if (inputs.timeout_seconds) {
     return ms.seconds(inputs.timeout_seconds);
   }
-
-  throw new Error('Must specify either timeout_minutes or timeout_seconds inputs');
+  return undefined;
 }
 
 export function getInputs(): Inputs {
   const timeout_minutes = getInputNumber('timeout_minutes', false);
   const timeout_seconds = getInputNumber('timeout_seconds', false);
-  const max_attempts = getInputNumber('max_attempts', true) || 3;
+  const max_attempts = getInputNumber('max_attempts', false) || 3;
   const command = getInput('command', { required: true });
   const retry_wait_seconds = getInputNumber('retry_wait_seconds', false) || 10;
   const shell = getInput('shell');
