@@ -3,7 +3,7 @@ import { execSync, spawn } from 'child_process';
 import ms from 'milliseconds';
 import kill from 'tree-kill';
 
-import { getInputs, getTimeout, Inputs } from './inputs';
+import { getInputs, getTimeout, Inputs, hasPatternSource } from './inputs';
 import { retryWait, wait } from './util';
 
 const OS = process.platform;
@@ -13,7 +13,7 @@ const OUTPUT_EXIT_ERROR_KEY = 'exit_error';
 
 let exit: number;
 let done: boolean;
-let error_pattern_matched: boolean;
+let output_pattern_matched: boolean;
 
 function getExecutable(inputs: Inputs): string {
   if (!inputs.shell) {
@@ -73,7 +73,7 @@ async function runCmd(attempt: number, inputs: Inputs) {
 
   exit = 0;
   done = false;
-  error_pattern_matched = false;
+  output_pattern_matched = false;
   let timeout_reached = false;
 
   debug(`Running command ${inputs.command} on ${OS} using shell ${executable}`);
@@ -82,22 +82,23 @@ async function runCmd(attempt: number, inputs: Inputs) {
       ? spawn(inputs.new_command_on_retry, { shell: executable })
       : spawn(inputs.command, { shell: executable });
 
-  const stderrChunks: Buffer[] = [];
+  const outputChunks: Buffer[] = [];
 
   child.stdout?.on('data', (data) => {
     process.stdout.write(data);
+    if (hasPatternSource(inputs, 'stdout')) outputChunks.push(Buffer.from(data));
   });
   child.stderr?.on('data', (data) => {
     process.stdout.write(data);
-    if (inputs.retry_on_error_pattern) stderrChunks.push(Buffer.from(data));
+    if (hasPatternSource(inputs, 'stderr')) outputChunks.push(Buffer.from(data));
   });
 
   child.on('exit', (code, signal) => {
     debug(`Code: ${code}`);
     debug(`Signal: ${signal}`);
-    if (inputs.retry_on_error_pattern) {
-      const stderrString = Buffer.concat(stderrChunks).toString('utf8');
-      error_pattern_matched = inputs.retry_on_error_pattern.test(stderrString);
+    if (inputs.retry_on_pattern) {
+      const outputString = Buffer.concat(outputChunks).toString('utf8');
+      output_pattern_matched = inputs.retry_on_pattern.test(outputString);
     }
 
     // timeouts are killed manually
@@ -154,10 +155,10 @@ async function runAction(inputs: Inputs) {
       } else if (exit > 0 && inputs.retry_on === 'timeout') {
         // error: error
         throw error;
-      } else if (exit > 0 && inputs.retry_on_error_pattern && !error_pattern_matched) {
+      } else if (exit > 0 && inputs.retry_on_pattern && !output_pattern_matched) {
         // error: error & pattern did not match
         warning(
-          `Early exited because the error didn't match the pattern: '${inputs.retry_on_error_pattern}'`
+          `Early exited because the output didn't match the pattern: '${inputs.retry_on_pattern}'`
         );
         throw error;
       } else {

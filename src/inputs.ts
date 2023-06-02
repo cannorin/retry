@@ -16,7 +16,8 @@ export interface Inputs {
   continue_on_error: boolean;
   new_command_on_retry: string | undefined;
   retry_on_exit_code: number | undefined;
-  retry_on_error_pattern: RegExp | undefined;
+  retry_on_pattern: RegExp | undefined;
+  retry_pattern_source: 'both' | 'stdout' | 'stderr';
 }
 
 export function getInputNumber(id: string, required: boolean): number | undefined {
@@ -53,6 +54,10 @@ export function getTimeout(inputs: Inputs): number | undefined {
   return undefined;
 }
 
+export function hasPatternSource(inputs: Inputs, source: 'stdout' | 'stderr') {
+  return inputs.retry_pattern_source === 'both' || inputs.retry_pattern_source === source;
+}
+
 export function getInputs(): Inputs {
   const timeout_minutes = getInputNumber('timeout_minutes', false);
   const timeout_seconds = getInputNumber('timeout_seconds', false);
@@ -67,13 +72,27 @@ export function getInputs(): Inputs {
   const continue_on_error = getInputBoolean('continue_on_error');
   const new_command_on_retry = getInput('new_command_on_retry');
   const retry_on_exit_code = getInputNumber('retry_on_exit_code', false);
-  const retry_on_error_pattern = (() => {
-    const str = getInput('retry_on_error_pattern');
+  const retry_on_pattern = (() => {
+    const str = getInput('retry_on_pattern');
     if (!str) return undefined;
     try {
       return regexFromString(str);
     } catch {
       return undefined;
+    }
+  })();
+  const retry_pattern_source: Inputs['retry_pattern_source'] = (() => {
+    const str = getInput('retry_pattern_source');
+    if (!str) return 'both';
+    switch (str) {
+      case 'stdout':
+        return 'stdout';
+      case 'stderr':
+        return 'stderr';
+      case 'both':
+        return 'both';
+      default:
+        throw `Input retry_pattern_source only accepts 'both', 'stdout', or 'stderr'.`;
     }
   })();
 
@@ -91,6 +110,7 @@ export function getInputs(): Inputs {
     continue_on_error,
     new_command_on_retry,
     retry_on_exit_code,
-    retry_on_error_pattern,
+    retry_on_pattern,
+    retry_pattern_source,
   };
 }

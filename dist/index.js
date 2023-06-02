@@ -2890,7 +2890,7 @@ var OUTPUT_EXIT_CODE_KEY = 'exit_code';
 var OUTPUT_EXIT_ERROR_KEY = 'exit_error';
 var exit;
 var done;
-var error_pattern_matched;
+var output_pattern_matched;
 function getExecutable(inputs) {
     if (!inputs.shell) {
         return OS === 'win32' ? 'powershell' : 'bash';
@@ -2953,7 +2953,7 @@ function runRetryCmd(inputs) {
 function runCmd(attempt, inputs) {
     var _a, _b;
     return __awaiter(this, void 0, void 0, function () {
-        var timeout, end_time, executable, timeout_reached, child, stderrChunks;
+        var timeout, end_time, executable, timeout_reached, child, outputChunks;
         return __generator(this, function (_c) {
             switch (_c.label) {
                 case 0:
@@ -2962,27 +2962,29 @@ function runCmd(attempt, inputs) {
                     executable = getExecutable(inputs);
                     exit = 0;
                     done = false;
-                    error_pattern_matched = false;
+                    output_pattern_matched = false;
                     timeout_reached = false;
                     (0, core_1.debug)("Running command ".concat(inputs.command, " on ").concat(OS, " using shell ").concat(executable));
                     child = attempt > 1 && inputs.new_command_on_retry
                         ? (0, child_process_1.spawn)(inputs.new_command_on_retry, { shell: executable })
                         : (0, child_process_1.spawn)(inputs.command, { shell: executable });
-                    stderrChunks = [];
+                    outputChunks = [];
                     (_a = child.stdout) === null || _a === void 0 ? void 0 : _a.on('data', function (data) {
                         process.stdout.write(data);
+                        if ((0, inputs_1.hasPatternSource)(inputs, 'stdout'))
+                            outputChunks.push(Buffer.from(data));
                     });
                     (_b = child.stderr) === null || _b === void 0 ? void 0 : _b.on('data', function (data) {
                         process.stdout.write(data);
-                        if (inputs.retry_on_error_pattern)
-                            stderrChunks.push(Buffer.from(data));
+                        if ((0, inputs_1.hasPatternSource)(inputs, 'stderr'))
+                            outputChunks.push(Buffer.from(data));
                     });
                     child.on('exit', function (code, signal) {
                         (0, core_1.debug)("Code: ".concat(code));
                         (0, core_1.debug)("Signal: ".concat(signal));
-                        if (inputs.retry_on_error_pattern) {
-                            var stderrString = Buffer.concat(stderrChunks).toString('utf8');
-                            error_pattern_matched = inputs.retry_on_error_pattern.test(stderrString);
+                        if (inputs.retry_on_pattern) {
+                            var outputString = Buffer.concat(outputChunks).toString('utf8');
+                            output_pattern_matched = inputs.retry_on_pattern.test(outputString);
                         }
                         // timeouts are killed manually
                         if (signal === 'SIGTERM') {
@@ -3060,9 +3062,9 @@ function runAction(inputs) {
                     // error: error
                     throw error_2;
                 case 8:
-                    if (!(exit > 0 && inputs.retry_on_error_pattern && !error_pattern_matched)) return [3 /*break*/, 9];
+                    if (!(exit > 0 && inputs.retry_on_pattern && !output_pattern_matched)) return [3 /*break*/, 9];
                     // error: error & pattern did not match
-                    (0, core_1.warning)("Early exited because the error didn't match the pattern: '".concat(inputs.retry_on_error_pattern, "'"));
+                    (0, core_1.warning)("Early exited because the output didn't match the pattern: '".concat(inputs.retry_on_pattern, "'"));
                     throw error_2;
                 case 9: return [4 /*yield*/, runRetryCmd(inputs)];
                 case 10:
@@ -3118,7 +3120,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.getInputs = exports.getTimeout = exports.getInputBoolean = exports.getInputNumber = void 0;
+exports.getInputs = exports.hasPatternSource = exports.getTimeout = exports.getInputBoolean = exports.getInputNumber = void 0;
 var core_1 = __nccwpck_require__(186);
 var milliseconds_1 = __importDefault(__nccwpck_require__(318));
 var util_1 = __nccwpck_require__(629);
@@ -3153,6 +3155,10 @@ function getTimeout(inputs) {
     return undefined;
 }
 exports.getTimeout = getTimeout;
+function hasPatternSource(inputs, source) {
+    return inputs.retry_pattern_source === 'both' || inputs.retry_pattern_source === source;
+}
+exports.hasPatternSource = hasPatternSource;
 function getInputs() {
     var timeout_minutes = getInputNumber('timeout_minutes', false);
     var timeout_seconds = getInputNumber('timeout_seconds', false);
@@ -3167,8 +3173,8 @@ function getInputs() {
     var continue_on_error = getInputBoolean('continue_on_error');
     var new_command_on_retry = (0, core_1.getInput)('new_command_on_retry');
     var retry_on_exit_code = getInputNumber('retry_on_exit_code', false);
-    var retry_on_error_pattern = (function () {
-        var str = (0, core_1.getInput)('retry_on_error_pattern');
+    var retry_on_pattern = (function () {
+        var str = (0, core_1.getInput)('retry_on_pattern');
         if (!str)
             return undefined;
         try {
@@ -3176,6 +3182,21 @@ function getInputs() {
         }
         catch (_a) {
             return undefined;
+        }
+    })();
+    var retry_pattern_source = (function () {
+        var str = (0, core_1.getInput)('retry_pattern_source');
+        if (!str)
+            return 'both';
+        switch (str) {
+            case 'stdout':
+                return 'stdout';
+            case 'stderr':
+                return 'stderr';
+            case 'both':
+                return 'both';
+            default:
+                throw "Input retry_pattern_source only accepts 'both', 'stdout', or 'stderr'.";
         }
     })();
     return {
@@ -3192,7 +3213,8 @@ function getInputs() {
         continue_on_error: continue_on_error,
         new_command_on_retry: new_command_on_retry,
         retry_on_exit_code: retry_on_exit_code,
-        retry_on_error_pattern: retry_on_error_pattern,
+        retry_on_pattern: retry_on_pattern,
+        retry_pattern_source: retry_pattern_source,
     };
 }
 exports.getInputs = getInputs;

@@ -60,9 +60,13 @@ Retries an Action step on failure or timeout. This is currently intended to repl
 
 **Optional** Specific exit code to retry on. This will only retry for the given error code and fail immediately other error codes.
 
-### `retry_on_error_pattern`
+### `retry_on_pattern`
 
-**Optional** Specific pattern on stderr to retry on. This will only retry if the content of stderr matches the pattern and fail immediately otherwise.
+**Optional** Specific output pattern to retry on. This will only retry if the output matches the pattern and fail immediately otherwise.
+
+### `retry_pattern_source`
+
+**Optional** The output source to match with the pattern specified in retry_on_pattern. Supports [`both` (default), `stdout`, `stderr`].
 
 ## Outputs
 
