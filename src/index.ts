@@ -13,6 +13,7 @@ const OUTPUT_EXIT_ERROR_KEY = 'exit_error';
 
 let exit: number;
 let done: boolean;
+let error_pattern_matched: boolean;
 
 function getExecutable(inputs: Inputs): string {
   if (!inputs.shell) {
@@ -71,6 +72,7 @@ async function runCmd(attempt: number, inputs: Inputs) {
 
   exit = 0;
   done = false;
+  error_pattern_matched = false;
   let timeout = false;
 
   debug(`Running command ${inputs.command} on ${OS} using shell ${executable}`);
@@ -79,16 +81,23 @@ async function runCmd(attempt: number, inputs: Inputs) {
       ? spawn(inputs.new_command_on_retry, { shell: executable })
       : spawn(inputs.command, { shell: executable });
 
+  const stderrChunks: Buffer[] = [];
+
   child.stdout?.on('data', (data) => {
     process.stdout.write(data);
   });
   child.stderr?.on('data', (data) => {
     process.stdout.write(data);
+    if (inputs.retry_on_error_pattern) stderrChunks.push(Buffer.from(data));
   });
 
   child.on('exit', (code, signal) => {
     debug(`Code: ${code}`);
     debug(`Signal: ${signal}`);
+    if (inputs.retry_on_error_pattern) {
+      const stderrString = Buffer.concat(stderrChunks).toString('utf8');
+      error_pattern_matched = inputs.retry_on_error_pattern.test(stderrString);
+    }
 
     // timeouts are killed manually
     if (signal === 'SIGTERM') {
@@ -145,6 +154,10 @@ async function runAction(inputs: Inputs) {
         throw error;
       } else if (exit > 0 && inputs.retry_on === 'timeout') {
         // error: error
+        throw error;
+      } else if (exit > 0 && inputs.retry_on_error_pattern && !error_pattern_matched) {
+        // error: error & pattern did not match
+        info(`The error didn't match the pattern: '${inputs.retry_on_error_pattern}'`);
         throw error;
       } else {
         await runRetryCmd(inputs);
