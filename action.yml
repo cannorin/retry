@@ -1,4 +1,4 @@
-name: Retry Step
+name: Retry Step (cannorin's fork)
 description: 'Retry a step on failure or timeout'
 inputs:
   command:
